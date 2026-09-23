@@ -1,3 +1,4 @@
+import { relativeDay } from "@/lib/dayLabel";
 import { supabase } from "@/lib/supabase";
 import { hasDatabase } from "@/lib/config";
 import type { Alert, Profile } from "@/lib/types";
@@ -158,6 +159,9 @@ interface TrackedFlightSummary {
   gate: string | null;
   terminal: string | null;
   status: string;
+  /** IANA timezones of the two airports, pulled out of the cached AeroAPI payload (raw->origin->>timezone). */
+  origin_tz: string | null;
+  dest_tz: string | null;
 }
 
 interface TrackedTripRow {
@@ -188,8 +192,23 @@ export interface TrackedTrip {
   arriveIso: string | null;
   gate: string | null;
   terminal: string | null;
+  /** Departure / arrival airport timezones, so times show as the airport's own local time, not the phone's. */
+  originTz: string | null;
+  destTz: string | null;
   status: string;
   delayMinutes: number;
+}
+
+/** "Sep 24, 2:53 PM CDT" — in the airport's own timezone when known (falls back to the phone's). */
+/** "Tomorrow, 2:53 PM CDT" / "Thu, Sep 26, 2:53 PM CDT" — the day is judged at the airport. */
+function formatAirportTime(iso: string, tz: string | null): string {
+  const day = relativeDay(iso, tz);
+  try {
+    const time = new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZoneName: "short", ...(tz ? { timeZone: tz } : {}) });
+    return day ? `${day.label}, ${time}` : time;
+  } catch {
+    return new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
 }
 
 function rowToTrackedTrip(row: TrackedTripRow): TrackedTrip {
@@ -207,13 +226,13 @@ function rowToTrackedTrip(row: TrackedTripRow): TrackedTrip {
     code: f ? `${f.airline_code} ${f.flight_number}` : row.flight_key,
     origin: f?.origin ?? "?",
     destination: f?.destination ?? "?",
-    departLocal: f
-      ? new Date(f.estimated_departure ?? f.scheduled_departure).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-      : "",
+    departLocal: f ? formatAirportTime(f.estimated_departure ?? f.scheduled_departure, f.origin_tz) : "",
     departIso: f ? f.estimated_departure ?? f.scheduled_departure : null,
     arriveIso: f ? f.estimated_arrival ?? f.scheduled_arrival : null,
     gate: f?.gate ?? null,
     terminal: f?.terminal ?? null,
+    originTz: f?.origin_tz ?? null,
+    destTz: f?.dest_tz ?? null,
     status: f?.status ?? "unknown",
     delayMinutes,
   };
@@ -224,7 +243,7 @@ export async function fetchTrips(): Promise<TrackedTrip[]> {
   const userId = await requireUserId();
   const { data, error } = await db
     .from("tracked_trips")
-    .select("id, flight_key, created_at, flights(flight_key, airline_code, flight_number, origin, destination, scheduled_departure, estimated_departure, scheduled_arrival, estimated_arrival, gate, terminal, status)")
+    .select("id, flight_key, created_at, flights(flight_key, airline_code, flight_number, origin, destination, scheduled_departure, estimated_departure, scheduled_arrival, estimated_arrival, gate, terminal, status, origin_tz:raw->origin->>timezone, dest_tz:raw->destination->>timezone)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;

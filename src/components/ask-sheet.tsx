@@ -4,13 +4,16 @@ import { ArrowUp, Sparkles, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { assistantProvider } from "@/lib/providers";
 import type { AssistantAnswer } from "@/lib/data/assistant";
-import type { Flight } from "@/lib/types";
 import { c, font, radius } from "@/theme";
 import { Press, T } from "./ui";
 
 interface Msg { id: number; q: string; a?: AssistantAnswer }
 
-export function AskSheet({ open, onClose, flight, initial, suggested }: { open: boolean; onClose: () => void; flight: Flight; initial: string | null; suggested: string[] }) {
+/**
+ * `flightKey` is all the server needs — it loads the flight itself.
+ * `title` is display-only ("UA 1482 · EWR → LAX").
+ */
+export function AskSheet({ open, onClose, flightKey, title, initial, suggested }: { open: boolean; onClose: () => void; flightKey: string; title: string; initial: string | null; suggested: string[] }) {
   const insets = useSafeAreaInsets();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
@@ -23,7 +26,7 @@ export function AskSheet({ open, onClose, flight, initial, suggested }: { open: 
     const id = ++seq.current;
     setMsgs((m) => [...m, { id, q }]);
     setText("");
-    assistantProvider.ask(q, flight).then((a) => setMsgs((m) => m.map((x) => (x.id === id ? { ...x, a } : x))));
+    assistantProvider.ask(q, { flightKey }).then((a) => setMsgs((m) => m.map((x) => (x.id === id ? { ...x, a } : x))));
   };
 
   useEffect(() => {
@@ -39,15 +42,15 @@ export function AskSheet({ open, onClose, flight, initial, suggested }: { open: 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", padding: 20, paddingBottom: 16 }}>
           <View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Sparkles size={12} color={c.accentBright} /><T v="eyebrow" color={c.accentBright}>Ask TailWind</T></View>
-            <T v="heading" style={{ marginTop: 8 }}>{flight.code} · {flight.origin.code} → {flight.destination.code}</T>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Sparkles size={12} color={c.accentBright} /><T v="eyebrow" color={c.accentBright}>Ask FlightIQ</T></View>
+            <T v="heading" style={{ marginTop: 8 }}>{title}</T>
             <T v="caption" style={{ marginTop: 2 }}>Answers use this flight's own signals.</T>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={10} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.surface, borderWidth: 1, borderColor: c.surfaceBorder, alignItems: "center", justifyContent: "center" }}><X size={16} color={c.text2} /></Pressable>
         </View>
 
         <ScrollView ref={scroller} onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })} style={{ flex: 1, borderTopWidth: 1, borderColor: c.hairline }} contentContainerStyle={{ padding: 20, gap: 24 }} keyboardShouldPersistTaps="handled">
-          {msgs.length === 0 && <T>Ask why TailWind sees a delay, what could change, or what you should do. It will always show what it's basing an answer on.</T>}
+          {msgs.length === 0 && <T>Ask why FlightIQ sees a delay, what could change, or what you should do. It will always show what it's basing an answer on.</T>}
           {msgs.map((m) => (
             <View key={m.id} style={{ gap: 12 }}>
               <View style={{ alignSelf: "flex-end", maxWidth: "85%", backgroundColor: c.accent, borderRadius: 18, borderBottomRightRadius: 5, paddingHorizontal: 16, paddingVertical: 10 }}>
@@ -61,7 +64,7 @@ export function AskSheet({ open, onClose, flight, initial, suggested }: { open: 
                     {m.a.basedOn.map((b) => <View key={b} style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.surfaceBorder, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 }}><Text style={{ fontFamily: font.sans, fontSize: 12, color: c.text2 }}>{b}</Text></View>)}
                   </View>
                 </View>
-              ) : <T v="caption" accessibilityLiveRegion="polite">TailWind is thinking…</T>}
+              ) : <T v="caption" accessibilityLiveRegion="polite">FlightIQ is thinking…</T>}
             </View>
           ))}
         </ScrollView>

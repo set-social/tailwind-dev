@@ -41,7 +41,7 @@ export function NextFlightCard({ detail, now, arrivalBuffer }: { detail: FlightD
             <Text style={{ fontFamily: font.sansSemi, fontSize: 14.5, color: c.ok, marginTop: 5 }}>{f.airlineStatus.label}</Text>
           </View>
           <View style={{ flex: 1, backgroundColor: c.watchSoft, borderRadius: radius.md, padding: 12 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Sparkles size={10} color={c.watch} /><T v="eyebrow" style={{ fontSize: 9.5 }}>TailWind</T></View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Sparkles size={10} color={c.watch} /><T v="eyebrow" style={{ fontSize: 9.5 }}>FlightIQ</T></View>
             <Text style={{ fontFamily: font.sansSemi, fontSize: 14.5, color: c.watch, marginTop: 5 }}>{f.forecast.probability}% risk</Text>
           </View>
         </View>

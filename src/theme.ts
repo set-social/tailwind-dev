@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 import type { Level } from "@/lib/types";
 
 /**
- * TailWind design tokens — "Horizon" direction.
+ * FlightIQ design tokens — "Horizon" direction.
  * Same indigo-black ground and violet/cyan palette as before. The difference
  * is restraint: no frosted glass or glow washes, just a hairline gradient
  * edge on surfaces, thin Sora numerals, and a planet-limb hero (see

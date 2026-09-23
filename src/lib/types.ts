@@ -280,6 +280,11 @@ export interface LiveFlight {
   terminal: string | null;
   aircraftType: string | null;
   tailNumber: string | null;
+  /** Estimated (else scheduled) departure/arrival as ISO instants, with each airport's IANA timezone — for "Today"/"Tomorrow" labels. */
+  departIso: string;
+  arriveIso: string;
+  originTz: string | null;
+  destTz: string | null;
   fetchedAt: string;
   /** AeroAPI's own progress_percent (0-100) along the route — real, not estimated client-side. Null when AeroAPI doesn't report it (e.g. before departure). */
   progressPercent: number | null;
@@ -318,4 +323,79 @@ export interface Profile {
   notifications: { id: string; label: string; description: string; enabled: boolean }[];
   /** Defaults to "F" for every account — see the temp_unit column default in the migration. */
   tempUnit: TempUnit;
+}
+
+// ─── Weather intelligence ────────────────────────────────────────────────
+// Mirrors supabase/functions/_shared/types.ts. Everything numeric here comes
+// from deterministic server code over real forecasts, METAR/TAF and NWS
+// alerts; the `narrative` is AI-written explanation of those findings.
+
+export type FlightCategory = "VFR" | "MVFR" | "IFR" | "LIFR";
+
+export interface WxConditions {
+  atIso: string;
+  atLocal: string;
+  source: "TAF" | "METAR" | "Forecast";
+  windDirDeg: number | null;
+  windDirName: string | null;
+  windKt: number | null;
+  gustKt: number | null;
+  visibilityMi: number | null;
+  ceilingFt: number | null;
+  flightCategory: FlightCategory | null;
+  precipMmHr: number | null;
+  tempC: number | null;
+  summary: string;
+}
+
+export interface WxFactor {
+  id: "wind" | "visibility" | "precipitation" | "icing" | "alert" | "pattern" | "trend";
+  level: Level;
+  title: string;
+  detail: string;
+}
+
+export interface WxDay {
+  label: string;
+  peakGustKt: number;
+  peakWindKt: number;
+  peakGustLocal: string;
+  dominantDir: string | null;
+  precipMm: number;
+}
+
+export interface AirportWeatherAssessment {
+  airport: string;
+  role: "departure" | "arrival" | "inbound_departure";
+  timezone: string | null;
+  focusIso: string;
+  focusLabel: string;
+  level: Level;
+  dataAvailable: boolean;
+  conditions: WxConditions | null;
+  observedNow: WxConditions | null;
+  factors: WxFactor[];
+  alerts: { event: string; severity: string; headline: string; onsetIso: string | null; endsIso: string | null; description: string }[];
+  daily: WxDay[];
+  chart: { t: string; windKt: number; gustKt: number }[];
+  sources: string[];
+}
+
+export interface WeatherNarrative {
+  headline: string;
+  insights: string[];
+  recommendations: { action: string; why: string }[];
+}
+
+export interface WeatherInsights {
+  flightKey: string;
+  generatedAt: string;
+  level: Level;
+  /** Always present: a plain line built from the findings, for when there's no narrative. */
+  summaryLine: string;
+  departure: AirportWeatherAssessment;
+  arrival: AirportWeatherAssessment;
+  inbound: AirportWeatherAssessment | null;
+  narrative: WeatherNarrative | null;
+  narrativeStatus: "ai" | "calm" | "limit" | "unavailable";
 }

@@ -64,7 +64,7 @@ export default function TripsScreen() {
       {trips !== null && trips.length === 0 && !error && (
         <EmptyState
           title="No flights yet"
-          body="Search a flight number to add your first flight, and TailWind starts watching it."
+          body="Search a flight number to add your first flight, and FlightIQ starts watching it."
           action={<Button label="Search flights" variant="light" onPress={() => navigation.navigate("Search")} icon={<SearchIcon size={16} color={c.bg} strokeWidth={2} />} style={{ alignSelf: "flex-start", minWidth: 190 }} />}
         />
       )}

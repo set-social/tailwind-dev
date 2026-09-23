@@ -88,7 +88,7 @@ export default function SearchScreen() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {flightProvider.popularSearches().map((s) => <Chip key={s} label={s} onPress={() => onChange(s)} />)}
           </View>
-          <T style={{ marginTop: 32 }}>Search by <Text style={{ fontFamily: font.sansMedium, color: c.text }}>flight number</Text> (UA 1482), <Text style={{ fontFamily: font.sansMedium, color: c.text }}>route</Text> (EWR to LAX) or <Text style={{ fontFamily: font.sansMedium, color: c.text }}>airport</Text> (Atlanta). Add a flight and TailWind starts watching it right away.</T>
+          <T style={{ marginTop: 32 }}>Search by <Text style={{ fontFamily: font.sansMedium, color: c.text }}>flight number</Text> (UA 1482), <Text style={{ fontFamily: font.sansMedium, color: c.text }}>route</Text> (EWR to LAX) or <Text style={{ fontFamily: font.sansMedium, color: c.text }}>airport</Text> (Atlanta). Add a flight and FlightIQ starts watching it right away.</T>
         </View>
       )}
 

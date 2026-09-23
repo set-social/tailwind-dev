@@ -14,6 +14,9 @@ import WelcomeScreen from "@/screens/WelcomeScreen";
 import { TabNavigator } from "./TabNavigator";
 import type { RootStackParamList } from "./types";
 
+/** The splash always plays for at least this long, so the animation is seen even on a fast start. */
+const MIN_SPLASH_MS = 3000;
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const theme = { ...DarkTheme, colors: { ...DarkTheme.colors, background: c.bg, card: c.bg, text: c.text, border: c.hairline, primary: c.accent } };
@@ -32,7 +35,13 @@ const screenOptions = { headerShown: false, contentStyle: { backgroundColor: c.b
 export function RootNavigator() {
   const [session, setSession] = useState<Session | null>(null);
   const [checked, setChecked] = useState(false);
+  const [minElapsed, setMinElapsed] = useState(false);
   const hadInitialSession = useRef(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMinElapsed(true), MIN_SPLASH_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!supabase) { setChecked(true); return; }
@@ -45,7 +54,8 @@ export function RootNavigator() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  if (!checked) return <LoadingScreen />;
+  // Wait for both the session check and the minimum splash time; a slow start just keeps it up longer.
+  if (!checked || !minElapsed) return <LoadingScreen />;
 
   return (
     <NavigationContainer theme={theme}>

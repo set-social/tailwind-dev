@@ -2,16 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import LinearGradient from "react-native-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowRight, ChevronRight, Search as SearchIcon } from "lucide-react-native";
 import { fetchAlerts, fetchTrips, type TrackedTrip } from "@/lib/providers";
 import { outlookFromStatus } from "@/lib/providers/flightProvider";
-import type { Alert } from "@/lib/types";
+import type { Alert, WeatherInsights } from "@/lib/types";
+import { fetchWeatherInsights } from "@/lib/providers/weatherInsights";
 import type { RootStackParamList } from "@/navigation/types";
 import { c, font, levelColor } from "@/theme";
-import { Button, Divider, FadeRule, Press, Reveal, Screen, SectionHeader, Skeleton, StatusPill, T } from "@/components/ui";
+import { Button, Divider, EdgedSurface, FadeRule, Press, Reveal, Screen, SectionHeader, Skeleton, StatusPill, T } from "@/components/ui";
 import { HorizonHero } from "@/components/horizon";
+import { Wordmark } from "@/components/brand";
 import { useGo } from "@/navigation/useGo";
 import { RoutePlaneIcon } from "@/components/route-plane-icon";
 
@@ -20,12 +21,20 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** "6:45 PM" -> { main: "6:45", suffix: "PM" }, whichever hour cycle the device uses. */
-function splitTime(iso: string | null): { main: string; suffix: string } {
-  if (!iso) return { main: "--:--", suffix: "" };
-  const s = new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+/** "6:45 PM" -> { main: "6:45", suffix: "PM", zone: "CDT" } — in the given (airport) timezone, whichever hour cycle the device uses. */
+function splitTime(iso: string | null, tz: string | null): { main: string; suffix: string; zone: string } {
+  if (!iso) return { main: "--:--", suffix: "", zone: "" };
+  const opt = tz ? { timeZone: tz } : {};
+  let s: string, zone = "";
+  try {
+    s = new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", ...opt });
+    zone = new Date(iso).toLocaleTimeString([], { timeZoneName: "short", ...opt }).split(/\s/).pop() ?? "";
+  } catch {
+    s = new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
   const m = s.match(/^(.*?)\s*([AaPp]\.?[Mm]\.?)$/);
-  return m ? { main: m[1], suffix: m[2].replace(/\./g, "").toUpperCase() } : { main: s, suffix: "" };
+  const z = /^[A-Z]{2,5}$/.test(zone) || /^GMT/.test(zone) ? zone : "";
+  return m ? { main: m[1], suffix: m[2].replace(/\./g, "").toUpperCase(), zone: z } : { main: s, suffix: "", zone: z };
 }
 
 function fmtHm(totalMin: number): string {
@@ -85,6 +94,7 @@ export default function HomeScreen() {
   const [trips, setTrips] = useState<TrackedTrip[] | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [now, setNow] = useState(Date.now());
+  const [wx, setWx] = useState<WeatherInsights | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30000);
@@ -110,19 +120,24 @@ export default function HomeScreen() {
     ? [...trips].filter((t) => t.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0] ?? trips[0] ?? null
     : null;
 
+  // A one-line weather headline for the next flight. Best effort: null just hides it.
+  const wxKey = nextTrip && !["landed", "cancelled", "diverted"].includes(nextTrip.status) ? nextTrip.flightKey : null;
+  useEffect(() => {
+    if (!wxKey) { setWx(null); return; }
+    let cancelled = false;
+    fetchWeatherInsights(wxKey).then((r) => { if (!cancelled) setWx(r); });
+    return () => { cancelled = true; };
+  }, [wxKey]);
+
   const open = (t: TrackedTrip) => navigation.navigate("LiveFlight", { flightNumber: t.flightNumber, date: t.date });
 
   const header = (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", height: 44 }}>
-      <Text style={{ fontFamily: font.displaySemi, fontSize: 17, letterSpacing: -0.35, color: c.text }} accessibilityRole="header">
-        TailWind
-      </Text>
+      <Wordmark width={118} />
       <Press label="Search flights" onPress={() => go("/search")} hitSlop={0} style={{ marginRight: -4 }}>
-        <LinearGradient colors={c.edgeLive} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 44, height: 44, borderRadius: 22, padding: 1 }}>
-          <View style={{ flex: 1, borderRadius: 21, backgroundColor: "#0e0f1e", alignItems: "center", justifyContent: "center" }}>
-            <SearchIcon size={18} color={c.text2} strokeWidth={1.5} />
-          </View>
-        </LinearGradient>
+        <EdgedSurface edge={c.edgeLive} fill={["#0e0f1e", "#0e0f1e"]} radius={22} style={{ width: 44, height: 44 }} contentStyle={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <SearchIcon size={18} color={c.text2} strokeWidth={1.5} />
+        </EdgedSurface>
       </Press>
     </View>
   );
@@ -130,8 +145,8 @@ export default function HomeScreen() {
   // What the readout row shows once a flight has left: arrival time instead of a countdown.
   const inAir = nextTrip?.status === "departed" || nextTrip?.status === "landed";
   const outlook = nextTrip ? outlookFromStatus(nextTrip.status, nextTrip.delayMinutes) : null;
-  const dep = splitTime(nextTrip?.departIso ?? null);
-  const arr = splitTime(nextTrip?.arriveIso ?? null);
+  const dep = splitTime(nextTrip?.departIso ?? null, nextTrip?.originTz ?? null);
+  const arr = splitTime(nextTrip?.arriveIso ?? null, nextTrip?.destTz ?? null);
   const durationMin = nextTrip?.departIso && nextTrip?.arriveIso
     ? Math.round((new Date(nextTrip.arriveIso).getTime() - new Date(nextTrip.departIso).getTime()) / 60000)
     : 0;
@@ -163,7 +178,7 @@ export default function HomeScreen() {
         {trips !== null && nextTrip && (
           <Reveal>
             <Press
-              label={`Next flight ${nextTrip.code}, ${nextTrip.origin} to ${nextTrip.destination}, departs ${dep.main} ${dep.suffix}`}
+              label={`Next flight ${nextTrip.code}, ${nextTrip.origin} to ${nextTrip.destination}, departs ${dep.main} ${dep.suffix} ${dep.zone}`}
               onPress={() => open(nextTrip)}
               hitSlop={0}
             >
@@ -178,7 +193,7 @@ export default function HomeScreen() {
                 >
                   {dep.main}
                 </Text>
-                {dep.suffix !== "" && <Text style={{ marginLeft: 8, fontFamily: font.displayLight, fontSize: 22, color: c.text2 }}>{dep.suffix}</Text>}
+                {dep.suffix !== "" && <Text style={{ marginLeft: 8, fontFamily: font.displayLight, fontSize: 22, color: c.text2 }}>{dep.suffix}{dep.zone ? <Text style={{ fontFamily: font.sans, fontSize: 12, letterSpacing: 0.5, color: c.text3 }}>{`  ${dep.zone}`}</Text> : null}</Text>}
               </View>
               <Text style={{ marginTop: 2, fontFamily: font.sans, fontSize: 15, color: c.text2 }} numberOfLines={1}>
                 {[`${nextTrip.origin} to ${nextTrip.destination}`, dayLabel(nextTrip.departIso) !== "Today" ? dayLabel(nextTrip.departIso) : null, nextTrip.gate ? `Gate ${nextTrip.gate}` : null].filter(Boolean).join(" · ")}
@@ -233,6 +248,12 @@ export default function HomeScreen() {
           </View>
 
           <Text style={{ marginTop: 16, fontFamily: font.sans, fontSize: 14.5, lineHeight: 21, color: c.text2 }}>{statement(nextTrip)}</Text>
+          {wx && (wx.departure.dataAvailable || wx.arrival.dataAvailable) && (
+            <Press label={`Weather: ${wx.narrative?.headline ?? wx.summaryLine}`} onPress={() => open(nextTrip)} hitSlop={0} style={{ marginTop: 10, flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+              <View style={{ width: 7, height: 7, borderRadius: 3.5, marginTop: 7, backgroundColor: levelColor[wx.level].solid }} />
+              <Text numberOfLines={3} style={{ flex: 1, fontFamily: font.sans, fontSize: 13.5, lineHeight: 20, color: c.text2 }}>{wx.narrative?.headline ?? wx.summaryLine}</Text>
+            </Press>
+          )}
           <Press label="Flight details" onPress={() => open(nextTrip)} hitSlop={0} style={{ marginTop: 2, height: 44, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={{ fontFamily: font.sansSemi, fontSize: 14, color: c.cyan }}>Flight details</Text>
             <ArrowRight size={16} color={c.cyan} strokeWidth={1.6} />
@@ -242,7 +263,7 @@ export default function HomeScreen() {
 
       {alerts.length > 0 && (
         <View style={{ marginTop: 32 }}>
-          <SectionHeader eyebrow="Now" title="What TailWind is watching" action={<Press label="All alerts" onPress={() => go("/alerts")}><Text style={{ fontFamily: font.sansSemi, fontSize: 13, color: c.accentBright }}>All alerts</Text></Press>} />
+          <SectionHeader eyebrow="Now" title="What FlightIQ is watching" action={<Press label="All alerts" onPress={() => go("/alerts")}><Text style={{ fontFamily: font.sansSemi, fontSize: 13, color: c.accentBright }}>All alerts</Text></Press>} />
           <FadeRule style={{ marginTop: 14 }} />
           {alerts.slice(0, 2).map((a, i) => (
             <View key={a.id}>
@@ -299,7 +320,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <T v="caption" style={{ marginTop: 28, paddingHorizontal: 2 }}>Don't just track the flight. TailWind watches your aircraft, the weather and the roads so you don't have to.</T>
+      <T v="caption" style={{ marginTop: 28, paddingHorizontal: 2 }}>Don't just track the flight. FlightIQ watches your aircraft, the weather and the roads so you don't have to.</T>
     </Screen>
   );
 }

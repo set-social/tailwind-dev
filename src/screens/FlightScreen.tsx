@@ -145,12 +145,12 @@ export default function FlightScreen() {
         </View>
       </Screen>
 
-      <Press label="Ask TailWind" onPress={() => ask(null)}
+      <Press label="Ask FlightIQ" onPress={() => ask(null)}
         style={{ position: "absolute", right: 20, bottom: insets.bottom + 16, flexDirection: "row", alignItems: "center", gap: 8, height: 50, paddingHorizontal: 20, borderRadius: 25, backgroundColor: c.accent, ...glow.accent }}>
         <Sparkles size={15} color={c.bg} />
-        <Text style={{ fontFamily: font.sansSemi, fontSize: 14.5, color: c.bg }}>Ask TailWind</Text>
+        <Text style={{ fontFamily: font.sansSemi, fontSize: 14.5, color: c.bg }}>Ask FlightIQ</Text>
       </Press>
-      <AskSheet open={open} onClose={close} flight={f} initial={q} suggested={detail.intelligence.suggested} />
+      <AskSheet open={open} onClose={close} flightKey={f.id} title={`${f.code} · ${f.origin.code} → ${f.destination.code}`} initial={q} suggested={detail.intelligence.suggested} />
     </View>
   );
 }

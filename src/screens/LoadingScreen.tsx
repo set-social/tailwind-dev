@@ -63,7 +63,7 @@ export default function LoadingScreen() {
         <HorizonHero variant="detail" showRoute={false} />
       </View>
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 26 }}>
-        <Animated.View style={{ opacity }}><Wordmark width={190} /></Animated.View>
+        <Animated.View style={{ opacity }}><Wordmark width={250} /></Animated.View>
         <TrackSweep />
         <T v="eyebrow">Tracking the skies</T>
       </View>

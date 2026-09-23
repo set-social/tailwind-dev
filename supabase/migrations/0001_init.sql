@@ -1,4 +1,4 @@
--- TailWind data model — PostgreSQL on Supabase.
+-- FlightIQ data model — PostgreSQL on Supabase.
 --
 -- Scope: just what the app's providers already declare they need
 -- (see src/lib/providers/db.ts) — per-user profile, tracked trips, and

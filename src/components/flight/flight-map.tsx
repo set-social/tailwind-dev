@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import type { LatLon, PositionInfo } from "@/lib/types";
 import { c } from "@/theme";
-import { RoutePlaneIcon } from "@/components/route-plane-icon";
+import { AirplaneGlyph } from "@/components/route-plane-icon";
+import { resolveHeading } from "@/lib/geo";
 
 /**
  * A real, interactive tracker map — react-native-maps (Apple Maps on iOS,
@@ -26,6 +27,18 @@ export function FlightMap({
   destinationCoords: LatLon | null;
 }) {
   const track = position.track.length > 0 ? position.track : [{ latitude: position.latitude, longitude: position.longitude }];
+
+  const heading = useMemo(() => resolveHeading(position.heading, track), [position.heading, track]);
+
+  // Apple Maps turns a marker's children into a bitmap. Snapshotting before
+  // the SVG has drawn gives an empty marker, so let it track changes for the
+  // first moments after mount, then freeze it (cheaper) — rotation and
+  // position updates are native props and don't need a re-snapshot.
+  const [snapshotting, setSnapshotting] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setSnapshotting(false), 700);
+    return () => clearTimeout(t);
+  }, []);
 
   const region = useMemo(() => {
     const points: LatLon[] = [...track, position, ...(originCoords ? [originCoords] : []), ...(destinationCoords ? [destinationCoords] : [])];
@@ -72,19 +85,12 @@ export function FlightMap({
         </Marker>
       )}
 
-      {/* The aircraft itself, rotated to its real heading. RoutePlaneIcon's
-          neutral (unrotated) pose points due right/east (90° bearing) by
-          design. Map markers assume their upright pose = north (0°
-          bearing) before `rotation` (a true compass heading) is applied,
-          so this counter-rotates by -90° first to correct east->north,
-          then rotation carries it the rest of the way to the real
-          heading. (Was lucide's `Plane` glyph, same 90°-east convention —
-          swapped out because its fine detail doesn't render legibly at
-          small sizes, confirmed on-device; this custom dart does.) */}
-      <Marker coordinate={position} anchor={{ x: 0.5, y: 0.5 }} rotation={position.heading ?? 0} flat tracksViewChanges={false}>
-        <View style={{ transform: [{ rotate: "-90deg" }] }}>
-          <RoutePlaneIcon size={24} color={c.accentBright} />
-        </View>
+      {/* The aircraft itself: an airliner silhouette drawn pointing north, so
+          `rotation` (a true compass heading, clockwise from north) turns it
+          to the real direction of travel with no counter-rotation. `flat`
+          keeps it glued to the map rather than the screen. */}
+      <Marker coordinate={position} anchor={{ x: 0.5, y: 0.5 }} rotation={heading ?? 0} flat tracksViewChanges={snapshotting}>
+        <AirplaneGlyph size={34} color={c.text} outline={c.bg} />
       </Marker>
     </MapView>
   );

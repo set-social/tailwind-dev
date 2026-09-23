@@ -17,10 +17,13 @@
 // window — meaningfully different from "traffic right now" when the
 // flight (and so the drive) is hours away.
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { aeroApiKey } from "../_shared/aeroapi.ts";
+import { fetchAirportCoords } from "../_shared/airports.ts";
+import { fetchWithTimeout } from "../_shared/http.ts";
+import type { AirportCoords } from "../_shared/types.ts";
 
-const AEROAPI_KEY = Deno.env.get("AEROAPI_KEY");
 const GOOGLE_ROUTES_API_KEY = Deno.env.get("GOOGLE_ROUTES_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -32,12 +35,6 @@ interface DriveTimeRequest {
   arriveBy: string;
 }
 
-function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "POST only" }, 405);
@@ -45,7 +42,7 @@ Deno.serve(async (req) => {
   if (!GOOGLE_ROUTES_API_KEY) {
     return jsonResponse({ error: "GOOGLE_ROUTES_API_KEY not configured — run `supabase secrets set`." }, 501);
   }
-  if (!AEROAPI_KEY) {
+  if (!aeroApiKey()) {
     return jsonResponse({ error: "AEROAPI_KEY not configured — needed for airport coordinates." }, 501);
   }
 
@@ -87,36 +84,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "drive-time failed", detail: String(err) }, 500);
   }
 });
-
-interface AirportCoords {
-  latitude: number;
-  longitude: number;
-}
-
-/** Same cache table + AeroAPI fallback flight-lookup's weather feature uses. */
-async function fetchAirportCoords(db: SupabaseClient, code: string): Promise<AirportCoords | null> {
-  try {
-    const { data: cached } = await db.from("airports").select("*").eq("code", code).maybeSingle();
-    if (cached?.latitude != null && cached?.longitude != null) {
-      return { latitude: cached.latitude, longitude: cached.longitude };
-    }
-    const res = await fetchWithTimeout(`https://aeroapi.flightaware.com/aeroapi/airports/${code}`, {
-      headers: { "x-apikey": AEROAPI_KEY! },
-    }, 10000);
-    if (!res.ok) return null;
-    const a = await res.json();
-    if (a.latitude == null || a.longitude == null) return null;
-    await db.from("airports").upsert({
-      code, name: a.name ?? null, city: a.city ?? null,
-      latitude: a.latitude, longitude: a.longitude, timezone: a.timezone ?? null,
-      fetched_at: new Date().toISOString(),
-    });
-    return { latitude: a.latitude, longitude: a.longitude };
-  } catch (err) {
-    console.error(`airport coords lookup failed for ${code}:`, err);
-    return null;
-  }
-}
 
 interface RouteResult {
   durationSeconds: number;

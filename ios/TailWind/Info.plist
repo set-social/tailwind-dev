@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>TailWind</string>
+	<string>FlightIQ</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -34,7 +34,7 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>TailWind uses your location to estimate real drive time to the airport for your flights.</string>
+	<string>FlightIQ uses your location to estimate real drive time to the airport for your flights.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

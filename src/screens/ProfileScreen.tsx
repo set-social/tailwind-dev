@@ -4,9 +4,8 @@ import { LogOut } from "lucide-react-native";
 import { fetchProfile, saveProfile } from "@/lib/providers";
 import { signOut, supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/types";
-import LinearGradient from "react-native-linear-gradient";
 import { c, font } from "@/theme";
-import { Divider, FadeRule, GlassCard, PageHeader, Press, Screen, Segmented, Skeleton, Stepper, T, Toggle } from "@/components/ui";
+import { Divider, EdgedSurface, FadeRule, GlassCard, PageHeader, Press, Screen, Segmented, Skeleton, Stepper, T, Toggle } from "@/components/ui";
 
 const Row = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => (
   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, paddingVertical: 14 }}>
@@ -73,11 +72,9 @@ export default function ProfileScreen() {
       {p && (
         <>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 28 }}>
-            <LinearGradient colors={c.edge} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 58, height: 58, borderRadius: 29, padding: 1 }}>
-              <View style={{ flex: 1, borderRadius: 28, backgroundColor: "#0e0f1e", alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ fontFamily: font.displayLight, fontSize: 24, color: c.accentBright }}>{(p.name || email || "?").trim().charAt(0).toUpperCase()}</Text>
-              </View>
-            </LinearGradient>
+            <EdgedSurface edge={c.edge} fill={["#0e0f1e", "#0e0f1e"]} radius={29} style={{ width: 58, height: 58 }} contentStyle={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontFamily: font.displayLight, fontSize: 24, color: c.accentBright }}>{(p.name || email || "?").trim().charAt(0).toUpperCase()}</Text>
+            </EdgedSurface>
             <View>
               <T v="heading" style={{ fontSize: 18 }}>{p.name || email || "Guest"}</T>
               {email && p.name && <T v="caption">{email}</T>}

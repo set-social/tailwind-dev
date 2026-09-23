@@ -37,7 +37,7 @@ export default function AlertsScreen() {
 
   return (
     <Screen bottomInset>
-      <PageHeader eyebrow="Intelligence feed" title="Only what matters." subtitle="TailWind alerts you when a change affects what you should do, not every time an airline updates a screen." />
+      <PageHeader eyebrow="Intelligence feed" title="Only what matters." subtitle="FlightIQ alerts you when a change affects what you should do, not every time an airline updates a screen." />
 
       {alerts === null && !error && (
         <View style={{ gap: 22, marginTop: 8 }} accessibilityLabel="Loading alerts">
@@ -51,7 +51,7 @@ export default function AlertsScreen() {
       {alerts !== null && alerts.length === 0 && !error && (
         <EmptyState
           title="Nothing yet"
-          body="Once you're tracking a flight, TailWind alerts you here when something actually changes what you should do."
+          body="Once you're tracking a flight, FlightIQ alerts you here when something actually changes what you should do."
         />
       )}
 

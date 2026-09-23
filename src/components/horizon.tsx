@@ -51,6 +51,13 @@ const GEOMETRY: Record<"home" | "detail", Geometry> = {
   },
 };
 
+/** "Fayetteville/Springdale/Rogers" -> "Fayetteville"; anything still long is cut, so a label never runs off the edge of the art. */
+export function shortCity(city: string | undefined): string | undefined {
+  if (!city) return undefined;
+  const first = city.split("/")[0].trim();
+  return first.length > 14 ? `${first.slice(0, 13)}…` : first;
+}
+
 const lerp = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 /** De Casteljau split of a cubic at t: the two halves, the point, and the heading there. */
@@ -161,9 +168,9 @@ export function HorizonHero({
           <Circle cx={g.p3[0]} cy={g.p3[1]} r={4.5} fill={c.cyan} />
 
           {origin ? <SvgText x={g.p0[0]} y={g.labelY} textAnchor="middle" fontFamily={font.sansSemi} fontSize={12} letterSpacing={1.5} fill={c.text}>{origin}</SvgText> : null}
-          {originCity ? <SvgText x={g.p0[0]} y={g.labelY + 16} textAnchor="middle" fontFamily={font.sans} fontSize={11.5} fill={c.text3}>{originCity}</SvgText> : null}
+          {originCity ? <SvgText x={g.p0[0]} y={g.labelY + 16} textAnchor="middle" fontFamily={font.sans} fontSize={11.5} fill={c.text3}>{shortCity(originCity)}</SvgText> : null}
           {destination ? <SvgText x={g.p3[0]} y={g.labelY} textAnchor="middle" fontFamily={font.sansSemi} fontSize={12} letterSpacing={1.5} fill={c.text}>{destination}</SvgText> : null}
-          {destinationCity ? <SvgText x={g.p3[0]} y={g.labelY + 16} textAnchor="middle" fontFamily={font.sans} fontSize={11.5} fill={c.text3}>{destinationCity}</SvgText> : null}
+          {destinationCity ? <SvgText x={g.p3[0]} y={g.labelY + 16} textAnchor="middle" fontFamily={font.sans} fontSize={11.5} fill={c.text3}>{shortCity(destinationCity)}</SvgText> : null}
         </>
       )}
     </Svg>

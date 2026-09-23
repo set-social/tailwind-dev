@@ -54,10 +54,10 @@ export const ua1482: FlightDetail = {
   intelligence: {
     headline: "Listed on time — but unlikely to leave on time.",
     summary:
-      "United currently reports this flight on time. However, your inbound aircraft is running 38 minutes late and thunderstorms are developing west of Newark. TailWind currently estimates a 68% chance of a departure delay greater than 30 minutes.",
+      "United currently reports this flight on time. However, your inbound aircraft is running 38 minutes late and thunderstorms are developing west of Newark. FlightIQ currently estimates a 68% chance of a departure delay greater than 30 minutes.",
     updatedAt: t(15, 42),
     suggested: [
-      "Why does TailWind think my flight will be delayed?",
+      "Why does FlightIQ think my flight will be delayed?",
       "Could United swap the aircraft?",
       "Should I leave for the airport later?",
       "What happens if this gets cancelled?",

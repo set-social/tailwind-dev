@@ -1,4 +1,4 @@
-# TailWind (mobile)
+# FlightIQ (mobile)
 
 Bare React Native 0.86 app (no Expo). Bundle / application id: `com.tailwind.app`.
 

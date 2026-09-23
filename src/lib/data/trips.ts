@@ -36,7 +36,7 @@ export const trips: Trip[] = [
         risk: 41,
         level: "risk",
         advice:
-          "You would have about 27 minutes to reach Concourse E, and it includes a train ride. If the first flight lands after 9:55 AM, this connection is likely to fail. TailWind will keep watching it and propose a backup as the day gets closer.",
+          "You would have about 27 minutes to reach Concourse E, and it includes a train ride. If the first flight lands after 9:55 AM, this connection is likely to fail. FlightIQ will keep watching it and propose a backup as the day gets closer.",
       },
     ],
     legs: [

@@ -98,6 +98,29 @@ function splitStyle(style: StyleProp<ViewStyle>) {
 }
 
 /**
+ * A surface with a 1px gradient edge, built from layers so that padding never
+ * sits on a gradient view. (React Native insets absolutely-positioned children
+ * by their parent's padding, so putting padding on a LinearGradient shifts its
+ * gradient layer and leaves a thick, mis-sized rim, which is what the first
+ * version of GlassCard did on a real device.) Layers, back to front: the edge
+ * gradient fills the box; the fill sits 1px inside it; the content flows on
+ * top and is the only thing that sizes the box, so `contentStyle` may carry
+ * any padding. `fill` must be opaque, or the edge colours show through it.
+ */
+export function EdgedSurface({ edge, edgeEnd = { x: 1, y: 1 }, fill, radius: r, style, contentStyle, children }: {
+  edge: string[]; edgeEnd?: { x: number; y: number }; fill: [string, string]; radius: number;
+  style?: StyleProp<ViewStyle>; contentStyle?: StyleProp<ViewStyle>; children?: ReactNode;
+}) {
+  return (
+    <View style={[{ borderRadius: r, overflow: "hidden" }, style]}>
+      <LinearGradient colors={edge} start={{ x: 0, y: 0 }} end={edgeEnd} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={fill} style={{ position: "absolute", top: 1, left: 1, right: 1, bottom: 1, borderRadius: r - 1 }} />
+      <View style={contentStyle}>{children}</View>
+    </View>
+  );
+}
+
+/**
  * The Horizon surface: an opaque dark panel with a one-pixel gradient edge
  * (bright at the top-left, violet at the bottom-right). Replaces the old
  * frosted-glass card — no blur, no glow, just a lit edge. Name kept so
@@ -106,16 +129,9 @@ function splitStyle(style: StyleProp<ViewStyle>) {
 export function GlassCard({ children, style, live = false }: { children: ReactNode; style?: StyleProp<ViewStyle>; tint?: "dark" | "light"; live?: boolean }) {
   const { outer, inner } = splitStyle(style);
   return (
-    <View style={outer}>
-      <LinearGradient colors={live ? c.edgeLive : c.edge} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.lg, padding: 1 }}>
-        <LinearGradient
-          colors={["#111225", "#0c0d1c"]}
-          style={[{ borderRadius: radius.lg - 1, overflow: "hidden" }, inner]}
-        >
-          {children}
-        </LinearGradient>
-      </LinearGradient>
-    </View>
+    <EdgedSurface edge={live ? c.edgeLive : c.edge} fill={["#111225", "#0c0d1c"]} radius={radius.lg} style={outer} contentStyle={inner}>
+      {children}
+    </EdgedSurface>
   );
 }
 
@@ -169,12 +185,8 @@ export function Button({ label, onPress, variant = "outline", icon, disabled, st
   style?: StyleProp<ViewStyle>; textStyle?: StyleProp<TextStyle>;
 }) {
   const ink = variant !== "outline";
-  const inner = (
-    <View style={{ height: variant === "outline" ? 52 : 54, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
-      {icon}
-      <Text style={[{ fontFamily: font.sansSemi, fontSize: 15, color: ink ? c.bg : c.text }, textStyle]}>{label}</Text>
-    </View>
-  );
+  const row: ViewStyle = { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 };
+  const text = <Text style={[{ fontFamily: font.sansSemi, fontSize: 15, color: ink ? c.bg : c.text }, textStyle]}>{label}</Text>;
   return (
     <Pressable
       accessibilityRole="button"
@@ -185,13 +197,13 @@ export function Button({ label, onPress, variant = "outline", icon, disabled, st
       style={({ pressed }) => [{ opacity: disabled ? 0.5 : pressed ? 0.75 : 1 }, style]}
     >
       {variant === "outline" ? (
-        <LinearGradient colors={["rgba(139,107,255,0.75)", "rgba(79,227,255,0.75)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 27, padding: 1 }}>
-          <View style={{ borderRadius: 26, backgroundColor: "#10101f" }}>{inner}</View>
-        </LinearGradient>
+        <EdgedSurface edge={["rgba(139,107,255,0.75)", "rgba(79,227,255,0.75)"]} edgeEnd={{ x: 1, y: 0 }} fill={["#10101f", "#10101f"]} radius={27} contentStyle={{ ...row, height: 54 }}>
+          {icon}{text}
+        </EdgedSurface>
       ) : variant === "violet" ? (
-        <LinearGradient colors={["#9b81ff", c.accent]} style={{ borderRadius: 27 }}>{inner}</LinearGradient>
+        <LinearGradient colors={["#9b81ff", c.accent]} style={{ ...row, height: 54, borderRadius: 27 }}>{icon}{text}</LinearGradient>
       ) : (
-        <View style={{ borderRadius: 27, backgroundColor: c.text }}>{inner}</View>
+        <View style={{ ...row, height: 54, borderRadius: 27, backgroundColor: c.text }}>{icon}{text}</View>
       )}
     </Pressable>
   );
@@ -200,11 +212,9 @@ export function Button({ label, onPress, variant = "outline", icon, disabled, st
 /** A pill-shaped input well with the same gradient hairline as every other Horizon surface. Put icons, a TextInput and any trailing button inside. */
 export function FieldBox({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
-    <LinearGradient colors={c.edge} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ borderRadius: 27, padding: 1 }, style]}>
-      <View style={{ height: 52, borderRadius: 26, backgroundColor: "#0e0f1e", flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18 }}>
-        {children}
-      </View>
-    </LinearGradient>
+    <EdgedSurface edge={c.edge} fill={["#0e0f1e", "#0e0f1e"]} radius={27} style={style} contentStyle={{ height: 54, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18 }}>
+      {children}
+    </EdgedSurface>
   );
 }
 

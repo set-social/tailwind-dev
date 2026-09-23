@@ -37,7 +37,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     let window = UIWindow(windowScene: windowScene)
     factory.startReactNative(
-      withModuleName: "TailWind",
+      withModuleName: "FlightIQ",
       in: window,
       launchOptions: appDelegate?.launchOptions
     )

@@ -66,7 +66,7 @@ export default function SignUpScreen() {
           <HorizonHero variant="detail" showRoute={false} />
         </View>
         <View style={{ alignItems: "center", paddingTop: 62 }}>
-          <Wordmark width={168} />
+          <Wordmark width={210} />
         </View>
       </View>
 

@@ -2,17 +2,22 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Check, ChevronLeft, Cloud, CloudFog, CloudLightning, CloudRain, CloudSun, Navigation, Plus, RotateCw, Sun,
+  Check, ChevronLeft, Cloud, CloudFog, CloudLightning, CloudRain, CloudSun, Navigation, Plus, RotateCw, Sparkles, Sun,
 } from "lucide-react-native";
 import { fetchLiveFlight, outlookFromStatus } from "@/lib/providers/flightProvider";
 import { fetchDriveTime } from "@/lib/providers/driveTime";
-import { fetchProfile, trackTrip } from "@/lib/providers";
+import { fetchProfile, fetchTrips, trackTrip } from "@/lib/providers";
+import { fetchWeatherInsights } from "@/lib/providers/weatherInsights";
+import { aircraftLabel } from "@/lib/aircraft";
+import { relativeDay } from "@/lib/dayLabel";
 import { getCurrentLocation } from "@/lib/location";
-import type { Condition, DriveTimeInfo, Level, LiveFlight, TempUnit, WeatherInfo } from "@/lib/types";
+import type { Condition, DriveTimeInfo, Level, LiveFlight, TempUnit, WeatherInfo, WeatherInsights } from "@/lib/types";
 import { c, font, levelColor, radius } from "@/theme";
 import { Button, Divider, FadeRule, Press, Screen, Skeleton, StatusPill, T } from "@/components/ui";
 import { FlightMap } from "@/components/flight/flight-map";
 import { HorizonHero } from "@/components/horizon";
+import { AskSheet } from "@/components/ask-sheet";
+import { WeatherInsightsBlocks } from "@/components/flight/weather-insights";
 
 /**
  * The real-flight-detail view — schedule, status, gate, terminal,
@@ -51,6 +56,10 @@ export function LiveFlightView({
   // Defaults to "F" before the fetch resolves — matches the profiles
   // table's own column default, so there's never a flash of the wrong unit.
   const [tempUnit, setTempUnit] = useState<TempUnit>("F");
+  const [askOpen, setAskOpen] = useState(false);
+  const [wx, setWx] = useState<WeatherInsights | null>(null);
+  const [wxLoading, setWxLoading] = useState(false);
+  const closeAsk = useCallback(() => setAskOpen(false), []);
 
   useEffect(() => {
     fetchProfile().then((p) => setTempUnit(p.tempUnit)).catch((err) => console.error("fetchProfile failed:", err));
@@ -65,6 +74,31 @@ export function LiveFlightView({
   }, [flightNumber, date]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Weather findings + AI recommendations for both airports. Asked for once the
+  // flight itself has loaded, and skipped for flights that are over — the
+  // outlook is about what's still ahead. A null result just means the card
+  // isn't shown (the older single-hour weather block below is the fallback).
+  // If this flight is already in the traveler's trips, show it as added instead of offering to add it again.
+  const trackedKey = flight?.flightKey;
+  useEffect(() => {
+    if (!trackedKey || !showAddButton) return;
+    let cancelled = false;
+    fetchTrips()
+      .then((ts) => { if (!cancelled && ts.some((t) => t.flightKey === trackedKey)) setAddState("added"); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [trackedKey, showAddButton]);
+
+  const wxKey = flight?.flightKey;
+  const wxRelevant = !!flight && !["landed", "cancelled", "diverted"].includes(flight.status);
+  useEffect(() => {
+    if (!wxKey || !wxRelevant) { setWx(null); setWxLoading(false); return; }
+    let cancelled = false;
+    setWxLoading(true);
+    fetchWeatherInsights(wxKey).then((r) => { if (!cancelled) { setWx(r); setWxLoading(false); } });
+    return () => { cancelled = true; };
+  }, [wxKey, wxRelevant]);
 
   // A "real progress map" should show real progress over time, not one
   // frozen snapshot — quietly refetches (no loading skeleton, no
@@ -109,6 +143,9 @@ export function LiveFlightView({
   const insets = useSafeAreaInsets();
   const airborne = !!flight && flight.status === "departed" && flight.position !== null;
   const progress = flight && flight.status === "departed" ? flight.progressPercent : null;
+  const aircraft = aircraftLabel(flight?.aircraftType);
+  const departDay = flight ? relativeDay(flight.departIso, flight.originTz) : null;
+  const arriveDay = flight ? relativeDay(flight.arriveIso, flight.destTz) : null;
   const sched = flight ? { dep: flight.estimatedDepart !== flight.scheduledDepart, arr: flight.estimatedArrive !== flight.scheduledArrive } : null;
 
   return (
@@ -160,6 +197,11 @@ export function LiveFlightView({
               <Text style={{ marginTop: 6, fontFamily: font.sansSemi, fontSize: 11.5, letterSpacing: 1.6, textTransform: "uppercase", color: c.cyan }} numberOfLines={1}>
                 {flight.code} · {flight.airline}
               </Text>
+              {departDay && (
+                <Text style={{ marginTop: 6, fontFamily: font.displayLight, fontSize: 20, letterSpacing: -0.4, color: departDay.offset === 0 ? c.text : c.accentBright }} numberOfLines={1}>
+                  {departDay.offset === 0 || departDay.offset === 1 || departDay.offset === -1 ? `${departDay.label} · ${departDay.date}` : departDay.date}
+                </Text>
+              )}
             </View>
 
             {/* Telemetry: live figures while airborne, otherwise the schedule and gate. */}
@@ -168,12 +210,12 @@ export function LiveFlightView({
                 <>
                   <Stat label="Altitude" value={flight.position.altitudeFt.toLocaleString()} unit="ft" />
                   <Stat label="Speed" value={String(Math.round(flight.position.groundspeedKts))} unit="kt" />
-                  <Stat label="Lands" value={flight.estimatedArrive} align="flex-end" tint={sched?.arr ? c.watch : undefined} />
+                  <Stat label="Lands" value={flight.estimatedArrive} sub={arriveDay?.label} align="flex-end" tint={sched?.arr ? c.watch : undefined} />
                 </>
               ) : (
                 <>
-                  <Stat label="Departs" value={flight.estimatedDepart} sub={sched?.dep ? `Scheduled ${flight.scheduledDepart}` : undefined} tint={sched?.dep ? c.watch : undefined} />
-                  <Stat label="Arrives" value={flight.estimatedArrive} sub={sched?.arr ? `Scheduled ${flight.scheduledArrive}` : undefined} />
+                  <Stat label="Departs" value={flight.estimatedDepart} sub={[departDay?.label, sched?.dep ? `Scheduled ${flight.scheduledDepart}` : null].filter(Boolean).join("\n") || undefined} tint={sched?.dep ? c.watch : undefined} />
+                  <Stat label="Arrives" value={flight.estimatedArrive} sub={[arriveDay?.label, sched?.arr ? `Scheduled ${flight.scheduledArrive}` : null].filter(Boolean).join("\n") || undefined} />
                   <Stat label={flight.terminal ? `Terminal ${flight.terminal}` : "Gate"} value={flight.gate ?? "—"} align="flex-end" muted={!flight.gate} />
                 </>
               )}
@@ -199,11 +241,25 @@ export function LiveFlightView({
               />
             )}
 
+            <Button
+              label="Ask FlightIQ"
+              onPress={() => setAskOpen(true)}
+              variant="outline"
+              icon={<Sparkles size={15} color={c.accentBright} />}
+              style={{ marginTop: showAddButton ? 12 : 22 }}
+            />
+
             {/* Real, interactive tracker map — only while actually airborne. */}
             {flight.position && (
               <View style={{ marginTop: 24, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: c.surfaceBorder }}>
                 <FlightMap position={flight.position} originCoords={flight.originCoords} destinationCoords={flight.destinationCoords} />
               </View>
+            )}
+
+            {(wxLoading || wx) && (
+              <Section title="Weather & recommendations">
+                <WeatherInsightsBlocks insights={wx} loading={wxLoading} />
+              </Section>
             )}
 
             <Section title="What we're watching">
@@ -257,19 +313,24 @@ export function LiveFlightView({
               </Section>
             )}
 
-            <Section title="Aircraft & gate">
+            <Section title={flight.inbound ? "Terminal & gate" : "Aircraft & gate"}>
               <View style={{ gap: 12 }}>
                 <Row label="Terminal" value={flight.terminal ?? "Not posted yet"} />
                 <Divider />
                 <Row label="Gate" value={flight.gate ?? "Not posted yet"} />
-                <Divider />
-                <Row label="Aircraft type" value={flight.aircraftType ?? "Unknown"} />
-                <Divider />
-                <Row label="Tail number" value={flight.tailNumber ?? "Unknown"} />
+                {/* With an inbound leg, the type and tail live under "Your aircraft" instead. */}
+                {!flight.inbound && (
+                  <>
+                    <Divider />
+                    <Row label="Aircraft type" value={aircraft ? aircraft.name : "Unknown"} />
+                    <Divider />
+                    <Row label="Tail number" value={flight.tailNumber ?? "Unknown"} />
+                  </>
+                )}
               </View>
             </Section>
 
-            {(flight.originWeather || flight.destinationWeather) && (
+            {!wx && !wxLoading && (flight.originWeather || flight.destinationWeather) && (
               <Section title="Weather">
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <WeatherColumn code={flight.origin.code} weather={flight.originWeather} align="flex-start" unit={tempUnit} />
@@ -281,6 +342,11 @@ export function LiveFlightView({
 
             {flight.inbound && (
               <Section title="Your aircraft">
+                <View style={{ gap: 12, marginBottom: 14 }}>
+                  <Row label="Aircraft type" value={aircraft ? (aircraft.name === aircraft.code ? aircraft.code : `${aircraft.name} (${aircraft.code})`) : "Not published yet"} />
+                  <Divider />
+                  <Row label="Tail number" value={flight.tailNumber ?? "Not assigned yet"} />
+                </View>
                 <T style={{ fontSize: 13.5 }}>
                   Currently operating <Text style={{ fontFamily: font.sansSemi, color: c.text }}>{flight.inbound.code}</Text>, {flight.inbound.origin} → {flight.inbound.destination}.
                 </T>
@@ -338,9 +404,22 @@ export function LiveFlightView({
           </>
         )}
       </Screen>
+      {flight && (
+        <AskSheet
+          open={askOpen}
+          onClose={closeAsk}
+          flightKey={flight.flightKey}
+          title={`${flight.code} · ${flight.origin.code} → ${flight.destination.code}`}
+          initial={null}
+          suggested={ASK_SUGGESTIONS}
+        />
+      )}
     </View>
   );
 }
+
+/** Starter questions for a real flight — all answerable from real signals (status, inbound aircraft, weather), none asking for a forecast the app doesn't have. */
+const ASK_SUGGESTIONS = ["What's going on with my flight?", "Should I leave later because of the weather?", "How will the wind affect my arrival?"];
 
 const valueStyle = { fontFamily: font.displayLight, fontSize: 22, lineHeight: 28, letterSpacing: -0.44, color: c.text, marginTop: 2 } as const;
 

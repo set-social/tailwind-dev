@@ -2,9 +2,9 @@ import { useContext } from "react";
 import { Pressable, Text, View } from "react-native";
 import { BottomTabBarHeightCallbackContext, type BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { CommonActions } from "@react-navigation/native";
-import LinearGradient from "react-native-linear-gradient";
 import { Bell, Briefcase, Home, Radar, User } from "lucide-react-native";
 import { c, font } from "@/theme";
+import { EdgedSurface } from "@/components/ui";
 
 const ICONS: Record<string, typeof Home> = { Home, Live: Radar, Trips: Briefcase, Alerts: Bell, Profile: User };
 
@@ -24,8 +24,7 @@ export function HorizonTabBar({ state, descriptors, navigation, insets }: Bottom
       onLayout={(e) => reportHeight?.(e.nativeEvent.layout.height)}
       style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: bottomOffset }}
     >
-      <LinearGradient colors={c.edge} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 31, padding: 1 }}>
-        <View style={{ height: 60, borderRadius: 30, backgroundColor: "rgba(16,16,34,0.94)", flexDirection: "row", alignItems: "center", justifyContent: "space-around", paddingHorizontal: 6 }}>
+      <EdgedSurface edge={c.edge} fill={["#0f0f21", "#0f0f21"]} radius={31} contentStyle={{ height: 62, flexDirection: "row", alignItems: "center", justifyContent: "space-around", paddingHorizontal: 6 }}>
           {state.routes.map((route, index) => {
             const { options } = descriptors[route.key];
             const focused = state.index === index;
@@ -61,8 +60,7 @@ export function HorizonTabBar({ state, descriptors, navigation, insets }: Bottom
               </Pressable>
             );
           })}
-        </View>
-      </LinearGradient>
+      </EdgedSurface>
     </View>
   );
 }
